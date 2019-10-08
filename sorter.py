@@ -11,21 +11,43 @@ from pathlib import Path
 import datetime
 import argparse
 
+
+foo="""
+Date Created                    : 2016:11:22 20:00:23
+File Modification Date/Time     : 2011:09:16 13:32:56-05:00
+Date/Time Original              : 2011:08:25 21:02:57
+GPS Date Stamp                  : 2011:11:24
+GPS Date/Time                   : 2011:11:24 20:26:01Z
+Modify Date                     : 2005:03:15 16:42:41
+"""
 def get_ymd(fn, args):
     ymd = "unknown"
     ro = subprocess.run(["exiftool", "-CreateDate", fn], capture_output=True)
     create_date = ro.stdout[34:53].decode('ascii')
-    if args.debug > 1:
-        print(create_date)
-    if len(create_date):
-        dt = datetime.datetime.strptime(create_date, "%Y:%m:%d %H:%M:%S")
-        ymd = dt.strftime("%Y/%m/%d")
-    else:
-        print("----------------------------")
+    if len(create_date) == 0:
         ro = subprocess.run(["exiftool", fn], capture_output=True)
-        for line in ro.stdout.decode('ascii').splitlines():
-            if line.find("Date") != -1:
-                print(line)
+        try:
+            for line in ro.stdout.decode('ascii').splitlines():
+                if line.find("Date Created") != -1:
+                    print(line)
+                    create_date = line[34:53]
+                    break
+                if line.find("GPS Date/Time") != -1:
+                    print(line)
+                    create_date = line[34:53]
+                    break
+        except Exception as e:
+            print("Error looking for other date {}".format(e))
+        if len(create_date):
+            if args.debug:
+                print("Setting date to {}".format(create_date))
+            subprocess.run(["exiftool", "-CreateDate={}".format(create_date), fn])
+    if len(create_date):
+        try:
+            dt = datetime.datetime.strptime(create_date, "%Y:%m:%d")
+            ymd = dt.strftime("%Y/%m/%d")
+        except:
+            print("Error parsing time:{}".format(create_date))
     if args.debug:
         print("{:12} {}".format(ymd, fn))
     return ymd
